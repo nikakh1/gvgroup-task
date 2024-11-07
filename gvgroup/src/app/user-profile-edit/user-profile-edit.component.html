@@ -1,0 +1,121 @@
+<mat-card class="w-[25rem] p-3 m-auto">
+  <mat-card-header>
+    <h5>Nika's profile information</h5>
+  </mat-card-header>
+  <mat-card-content>
+    <form (ngSubmit)="onSubmit()" [formGroup]="editProfileForm">
+      <mat-form-field class="w-full">
+        <mat-label>First name</mat-label>
+        <input
+          matInput
+          formControlName="firstName"
+          placeholder="Enter your first name"
+        />
+        <div
+          *ngIf="!isFieldValid('firstName')"
+          class="text-red-600 text-sm mt-1"
+        >
+          <span *ngIf="editProfileForm.get('firstName')?.hasError('required')"
+            >First name is required.</span
+          >
+        </div>
+      </mat-form-field>
+
+      <mat-form-field class="w-full">
+        <mat-label>Last name</mat-label>
+        <input
+          matInput
+          formControlName="lastName"
+          placeholder="Enter your last name"
+        />
+        <div
+          *ngIf="!isFieldValid('lastName')"
+          class="text-red-600 text-sm mt-1"
+        >
+          <span *ngIf="editProfileForm.get('lastName')?.hasError('required')"
+            >Last name is required.</span
+          >
+        </div>
+      </mat-form-field>
+
+      <mat-form-field class="w-full">
+        <mat-label>Email</mat-label>
+        <input
+          matInput
+          formControlName="email"
+          placeholder="Enter your email"
+        />
+        <div *ngIf="!isFieldValid('email')" class="text-red-600 text-sm mt-1">
+          <span *ngIf="editProfileForm.get('email')?.hasError('required')"
+            >Email is required.</span
+          >
+          <span *ngIf="editProfileForm.get('email')?.hasError('pattern')"
+            >Invalid email format.</span
+          >
+        </div>
+      </mat-form-field>
+
+      <mat-form-field class="w-full">
+        <mat-label>Phone number</mat-label>
+        <input
+          matInput
+          formControlName="phoneNumber"
+          placeholder="Enter your phone number"
+        />
+        <div
+          *ngIf="!isFieldValid('phoneNumber')"
+          class="text-red-600 text-sm mt-1"
+        >
+          <span *ngIf="editProfileForm.get('phoneNumber')?.hasError('pattern')"
+            >Only numbers allowed.</span
+          >
+        </div>
+      </mat-form-field>
+
+      <div *ngIf="pfpImagePreview" class="mb-2">
+        <img
+          [src]="pfpImagePreview"
+          alt="Selected Image"
+          class="w-24 h-24 rounded-full object-cover border"
+        />
+      </div>
+
+      <div class="mb-4">
+        <button
+          mat-raised-button
+          color="primary"
+          type="button"
+          (click)="fileInput.click()"
+        >
+          Choose Profile Picture
+        </button>
+        <input
+          #fileInput
+          type="file"
+          accept="image/*"
+          (change)="onFileSelect($event)"
+          class="hidden"
+        />
+      </div>
+
+      <button
+        mat-raised-button
+        color="primary"
+        type="submit"
+        [disabled]="!editProfileForm.valid"
+        class="mt-3"
+      >
+        Save
+      </button>
+      <button
+        mat-raised-button
+        type="button"
+        (click)="onFormReset()"
+        color="secondary"
+        class="mt-3 ml-2"
+      >
+        Cancel
+      </button>
+    </form>
+  </mat-card-content>
+</mat-card>
