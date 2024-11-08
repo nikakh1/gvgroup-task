@@ -1,7 +1,9 @@
 import {
   ChangeDetectionStrategy,
-  ChangeDetectorRef,
   Component,
+  DestroyRef,
+  inject,
+  OnInit,
 } from '@angular/core';
 import {
   FormBuilder,
@@ -13,8 +15,18 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { CommonModule } from '@angular/common';
-
+import { UserService } from '../shared/service/user.service';
+import { Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ImagePreviewPipe } from '../shared/pipes/image-preview.pipe';
+import { FileService } from '../shared/service/file.service';
+import {
+  emailValidator,
+  numericValidator,
+} from '../shared/utils/form-validators';
+import { NotificationService } from '../shared/service/notification.service';
 @Component({
   selector: 'app-user-profile-edit',
   standalone: true,
@@ -23,62 +35,93 @@ import { CommonModule } from '@angular/common';
     MatInputModule,
     MatCardModule,
     MatButtonModule,
+    MatProgressSpinnerModule,
     ReactiveFormsModule,
     CommonModule,
+    ImagePreviewPipe,
   ],
   templateUrl: './user-profile-edit.component.html',
   styleUrls: ['./user-profile-edit.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class UserProfileEditComponent {
-  public editProfileForm: FormGroup;
-  public pfpImagePreview: string | ArrayBuffer | null = null;
+export class UserProfileEditComponent implements OnInit {
+  private destroyRef = inject(DestroyRef);
+  private userService = inject(UserService);
+  private router = inject(Router);
+  private notificationService = inject(NotificationService);
+  private fileService = inject(FileService);
 
-  constructor(private fb: FormBuilder, private cdr: ChangeDetectorRef) {
-    this.editProfileForm = this.fb.group({
-      firstName: ['', Validators.required],
-      lastName: ['', Validators.required],
-      email: [
-        '',
-        [
-          Validators.required,
-          Validators.pattern(/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/),
-        ],
-      ],
-      phoneNumber: ['', Validators.pattern(/^\d+$/)],
-      profilePicture: [''],
-    });
+  public editProfileForm: FormGroup = inject(FormBuilder).group({
+    firstName: ['', Validators.required],
+    lastName: ['', Validators.required],
+    email: ['', [Validators.required, emailValidator()]],
+    phoneNumber: ['', numericValidator()],
+    profilePicture: [''],
+  });
+  public loading$ = this.userService.loadingState$;
+
+  ngOnInit() {
+    this.getUserProfile();
+  }
+
+  private getUserProfile(): void {
+    this.userService
+      .getUserProfile()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((user) => {
+        this.editProfileForm.patchValue(user);
+      });
   }
 
   public onFileSelect(event: Event): void {
     const file = (event.target as HTMLInputElement).files?.[0];
-    if (file) {
+    if (file && file.type.startsWith('image/')) {
       this.editProfileForm.patchValue({ profilePicture: file });
       this.editProfileForm.get('profilePicture')?.updateValueAndValidity();
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        this.pfpImagePreview = reader.result;
-        this.cdr.detectChanges();
-      };
-      reader.readAsDataURL(file);
+    } else {
+      this.notificationService.openSnackBar(
+        'Please select a valid image file',
+        'Dismiss'
+      );
     }
   }
 
   public isFieldValid(fieldName: string): boolean {
-    if (
-      this.editProfileForm.get(fieldName)?.invalid &&
-      (this.editProfileForm.get(fieldName)?.dirty ||
-        this.editProfileForm.get(fieldName)?.touched)
-    ) {
-      return false;
-    }
-    return true;
+    const control = this.editProfileForm.get(fieldName);
+    return control?.valid || !(control?.dirty || control?.touched);
   }
 
   public onSubmit(): void {
-    console.log(this.editProfileForm.value);
+    if (this.editProfileForm.valid) {
+      const updatedUser = this.editProfileForm.value;
+
+      if (updatedUser.profilePicture instanceof File) {
+        this.fileService
+          .readFileAsBase64(updatedUser.profilePicture)
+          .then((result) => {
+            updatedUser.profilePicture = result;
+            this.saveProfile(updatedUser);
+          });
+      } else {
+        this.saveProfile(updatedUser);
+      }
+    }
   }
 
-  public onFormReset(): void {}
+  private saveProfile(updatedUser: any): void {
+    this.userService
+      .updateUserProfile(updatedUser)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((res) => {
+        this.notificationService.openSnackBar(
+          'User profile has been updated!',
+          'Dismiss'
+        );
+        this.router.navigate(['/']);
+      });
+  }
+
+  public onFormReset(): void {
+    this.router.navigate(['/']);
+  }
 }
